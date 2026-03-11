@@ -3,7 +3,7 @@ const API_KEY="ID9GKDX0E3Z3TP9A";
 
 async function fetchData(symbol){
 
-let url=`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${API_KEY}`;
+let url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${API_KEY}`;
 
 let res=await fetch(url);
 let data=await res.json();
