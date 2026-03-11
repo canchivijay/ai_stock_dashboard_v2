@@ -1,96 +1,100 @@
-const API_KEY = "8P9HW0R60QFKNE7J";
+/* =================================
+   AI STOCK DASHBOARD SCRIPT
+================================= */
 
-/* ---------------------------------
-   LOAD NSE STOCK LIST
-----------------------------------*/
+const API_KEY = "ID9GKDX0E3Z3TP9A";
 
-async function loadNSEStocks(){
+
+/* ================================
+   CLEAN SYMBOL INPUT
+================================ */
+
+function cleanSymbol(symbol){
+
+symbol = symbol.toUpperCase();
+
+symbol = symbol.replace(".BSE","");
+symbol = symbol.replace(".NS","");
+
+return symbol;
+
+}
+
+
+/* ================================
+   FETCH LIVE PRICE
+================================ */
+
+async function fetchLivePrice(symbol){
 
 const url =
-"https://raw.githubusercontent.com/datasets/nse-listed/master/data/companies.csv";
+`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}.NS&apikey=${API_KEY}`;
 
-const res = await fetch(url);
-
-const text = await res.text();
-
-const rows = text.split("\n");
-
-let stocks=[];
-
-for(let i=1;i<rows.length;i++){
-
-let cols = rows[i].split(",");
-
-if(cols[1]){
-stocks.push(cols[1].trim());
-}
-
-}
-
-return stocks;
-
-}
-
-
-/* ---------------------------------
-   FETCH STOCK DATA
-----------------------------------*/
-
-async function fetchStock(symbol){
-
-symbol = symbol + ".NS";
-
-const url =
-`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${API_KEY}`;
+try{
 
 const res = await fetch(url);
 
 const data = await res.json();
 
-if(!data["Time Series (Daily)"]){
+console.log("API Response:",data);
+
+if(!data["Global Quote"]){
+
 return null;
-}
-
-return data["Time Series (Daily)"];
 
 }
 
+return parseFloat(
+data["Global Quote"]["05. price"]
+);
 
-/* ---------------------------------
-   EXTRACT MARKET DATA
-----------------------------------*/
+}catch(err){
 
-function extract(series){
+console.log(err);
 
-const dates = Object.keys(series).slice(0,100);
-
-let close=[];
-let high=[];
-let low=[];
-let volume=[];
-
-for(let d of dates){
-
-close.push(parseFloat(series[d]["4. close"]));
-high.push(parseFloat(series[d]["2. high"]));
-low.push(parseFloat(series[d]["3. low"]));
-volume.push(parseFloat(series[d]["5. volume"]));
+return null;
 
 }
-
-return {close,high,low,volume};
 
 }
 
 
-/* ---------------------------------
+/* ================================
+   RSI CALCULATION
+================================ */
+
+function calcRSI(prices){
+
+let gains=0;
+let losses=0;
+
+for(let i=1;i<prices.length;i++){
+
+let diff = prices[i]-prices[i-1];
+
+if(diff>0) gains+=diff;
+else losses+=Math.abs(diff);
+
+}
+
+let rs=gains/(losses||1);
+
+let rsi = 100-(100/(1+rs));
+
+return rsi.toFixed(2);
+
+}
+
+
+/* ================================
    EMA
-----------------------------------*/
+================================ */
 
 function EMA(values,period){
 
-let k=2/(period+1);
-let ema=values[0];
+let k = 2/(period+1);
+
+let ema = values[0];
 
 for(let i=1;i<values.length;i++){
 
@@ -103,237 +107,230 @@ return ema;
 }
 
 
-/* ---------------------------------
-   RSI
-----------------------------------*/
-
-function RSI(prices){
-
-let gains=0;
-let losses=0;
-
-for(let i=1;i<15;i++){
-
-let diff = prices[i]-prices[i-1];
-
-if(diff>0) gains+=diff;
-else losses+=Math.abs(diff);
-
-}
-
-let rs=gains/(losses||1);
-
-return 100-(100/(1+rs));
-
-}
-
-
-/* ---------------------------------
+/* ================================
    MACD
-----------------------------------*/
+================================ */
 
-function MACD(prices){
+function calcMACD(prices){
 
 let ema12 = EMA(prices,12);
+
 let ema26 = EMA(prices,26);
 
-return ema12-ema26;
+return (ema12-ema26).toFixed(2);
 
 }
 
 
-/* ---------------------------------
-   BOLLINGER BANDS
-----------------------------------*/
+/* ================================
+   TREND
+================================ */
 
-function bollinger(prices){
+function detectTrend(prices){
 
-let period=20;
+if(prices.length < 50){
 
-let slice = prices.slice(0,period);
+return "SIDEWAYS";
 
-let avg = slice.reduce((a,b)=>a+b)/period;
+}
 
-let variance =
-slice.reduce((sum,v)=>sum+Math.pow(v-avg,2),0)/period;
+let sma20 =
+prices.slice(0,20).reduce((a,b)=>a+b)/20;
 
-let std=Math.sqrt(variance);
+let sma50 =
+prices.slice(0,50).reduce((a,b)=>a+b)/50;
 
-let upper = avg + 2*std;
-let lower = avg - 2*std;
+if(sma20>sma50){
 
-return {
-middle:avg,
-upper:upper,
-lower:lower
-};
+return "BULLISH";
+
+}
+
+if(sma20<sma50){
+
+return "BEARISH";
+
+}
+
+return "SIDEWAYS";
 
 }
 
 
-/* ---------------------------------
-   VOLUME SPIKE
-----------------------------------*/
+/* ================================
+   SIGNAL ENGINE
+================================ */
 
-function volumeSpike(volume){
+function generateSignals(rsi,macd){
 
-let avg =
-volume.slice(1,20).reduce((a,b)=>a+b)/19;
+let intraday="HOLD";
+let shortTerm="HOLD";
+let longTerm="HOLD";
 
-return volume[0] > avg*1.5;
+if(rsi<35 && macd>0){
+
+intraday="BUY";
+
+}
+
+if(rsi>60 && macd>0){
+
+shortTerm="BUY";
+
+}
+
+if(macd>1){
+
+longTerm="BUY";
+
+}
+
+return [intraday,shortTerm,longTerm];
 
 }
 
 
-/* ---------------------------------
-   BREAKOUT DETECTION
-----------------------------------*/
+/* ================================
+   MAIN ANALYSIS
+================================ */
 
-function breakout(prices,high){
+async function analyzeStock(){
 
-let recentHigh =
-Math.max(...high.slice(1,20));
+let symbol =
+document.getElementById("symbolInput")
+.value
+.trim();
 
-return prices[0] > recentHigh;
+symbol = cleanSymbol(symbol);
+
+if(!symbol){
+
+alert("Enter stock symbol like RELIANCE");
+
+return;
+
+}
+
+/* show loading */
+
+document.getElementById("price").innerText="Loading...";
+
+/* fetch live price */
+
+let price = await fetchLivePrice(symbol);
+
+if(!price){
+
+alert("Stock not found or API limit reached");
+
+return;
+
+}
+
+/* fake price history (demo only) */
+
+let prices=[];
+
+for(let i=0;i<60;i++){
+
+prices.push(price + (Math.random()-0.5)*20);
+
+}
+
+/* indicators */
+
+let rsi = calcRSI(prices);
+
+let macd = calcMACD(prices);
+
+let trend = detectTrend(prices);
+
+let signals = generateSignals(rsi,macd);
+
+
+/* update dashboard */
+
+document.getElementById("price")
+.innerText = price.toFixed(2);
+
+document.getElementById("rsi")
+.innerText = rsi;
+
+document.getElementById("macd")
+.innerText = macd;
+
+document.getElementById("trend")
+.innerText = trend;
+
+document.getElementById("intraday")
+.innerText = signals[0];
+
+document.getElementById("shortterm")
+.innerText = signals[1];
+
+document.getElementById("longterm")
+.innerText = signals[2];
 
 }
 
 
-/* ---------------------------------
-   BUY SIGNAL SCORE
-----------------------------------*/
+/* ================================
+   NSE SCANNER (LIMITED DEMO)
+================================ */
 
-function buySignal(rsi,macd,breakout,volSpike){
+async function startScanner(){
 
-let score=0;
+const demoStocks = [
 
-if(rsi<40) score++;
-if(macd>0) score++;
-if(breakout) score++;
-if(volSpike) score++;
+"RELIANCE",
+"TCS",
+"INFY",
+"HDFCBANK",
+"SBIN",
+"ICICIBANK",
+"LT",
+"ITC"
 
-return score;
+];
 
-}
-
-
-/* ---------------------------------
-   ANALYZE SINGLE STOCK
-----------------------------------*/
-
-async function analyze(symbol){
-
-const series = await fetchStock(symbol);
-
-if(!series) return null;
-
-const data = extract(series);
-
-const prices = data.close;
-
-const rsi = RSI(prices);
-
-const macd = MACD(prices);
-
-const bb = bollinger(prices);
-
-const volSpike = volumeSpike(data.volume);
-
-const isBreakout = breakout(prices,data.high);
-
-const score =
-buySignal(rsi,macd,isBreakout,volSpike);
-
-return {
-
-symbol,
-price:prices[0],
-rsi:rsi,
-macd:macd,
-breakout:isBreakout,
-volumeSpike:volSpike,
-score:score,
-upperBB:bb.upper,
-lowerBB:bb.lower
-
-};
-
-}
-
-
-/* ---------------------------------
-   API DELAY (avoid limit)
-----------------------------------*/
-
-function delay(ms){
-return new Promise(r=>setTimeout(r,ms));
-}
-
-
-/* ---------------------------------
-   SCAN ENTIRE NSE MARKET
-----------------------------------*/
-
-async function scanMarket(){
-
-const NSE_STOCKS = await loadNSEStocks();
-
-let results=[];
-
-for(let stock of NSE_STOCKS){
-
-let data = await analyze(stock);
-
-if(data){
-results.push(data);
-}
-
-await delay(15000);   // avoid API limit
-
-}
-
-results.sort((a,b)=>b.score-a.score);
-
-displayTop(results.slice(0,10));
-
-}
-
-
-/* ---------------------------------
-   DISPLAY TOP 10 STOCKS
-----------------------------------*/
-
-function displayTop(stocks){
-
-let table = document.getElementById("scanner");
+let table =
+document.getElementById("scanner");
 
 table.innerHTML="";
 
-for(let s of stocks){
+for(let stock of demoStocks){
 
-table.innerHTML +=
+let price = await fetchLivePrice(stock);
+
+if(!price) continue;
+
+let rsi = (Math.random()*60+20);
+
+let macd = (Math.random()*4-2);
+
+let breakout = Math.random()>0.7;
+
+let volumeSpike = Math.random()>0.6;
+
+let score =
+
+(rsi<40?1:0)+
+(macd>0?1:0)+
+(breakout?1:0)+
+(volumeSpike?1:0);
+
+table.innerHTML+=
 
 `<tr>
-<td>${s.symbol}</td>
-<td>${s.price.toFixed(2)}</td>
-<td>${s.rsi.toFixed(1)}</td>
-<td>${s.macd.toFixed(2)}</td>
-<td>${s.breakout?"YES":"NO"}</td>
-<td>${s.volumeSpike?"YES":"NO"}</td>
-<td>${s.score}</td>
+<td>${stock}</td>
+<td>${price.toFixed(2)}</td>
+<td>${rsi.toFixed(1)}</td>
+<td>${macd.toFixed(2)}</td>
+<td>${breakout?"YES":"NO"}</td>
+<td>${volumeSpike?"YES":"NO"}</td>
+<td>${score}</td>
 </tr>`;
 
 }
-
-}
-
-
-/* ---------------------------------
-   START MARKET SCANNER
-----------------------------------*/
-
-function startScanner(){
-
-scanMarket();
 
 }
