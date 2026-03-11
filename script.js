@@ -1,56 +1,30 @@
-/* =================================
-   AI STOCK DASHBOARD SCRIPT
-================================= */
-
-const API_KEY = "ID9GKDX0E3Z3TP9A";
-
-
-/* ================================
-   CLEAN SYMBOL INPUT
+/* ===============================
+   AI STOCK DASHBOARD - WORKING VERSION
 ================================ */
 
-function cleanSymbol(symbol){
+async function fetchPrice(symbol){
 
 symbol = symbol.toUpperCase();
 
 symbol = symbol.replace(".BSE","");
 symbol = symbol.replace(".NS","");
 
-return symbol;
-
-}
-
-
-/* ================================
-   FETCH LIVE PRICE
-================================ */
-
-async function fetchLivePrice(symbol){
+try{
 
 const url =
-`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}.NS&apikey=${API_KEY}`;
-
-try{
+`https://api.allorigins.win/raw?url=https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}.NS`;
 
 const res = await fetch(url);
 
 const data = await res.json();
 
-console.log("API Response:",data);
+console.log(data);
 
-if(!data["Global Quote"]){
+return data.quoteResponse.result[0].regularMarketPrice;
 
-return null;
+}catch(e){
 
-}
-
-return parseFloat(
-data["Global Quote"]["05. price"]
-);
-
-}catch(err){
-
-console.log(err);
+console.log(e);
 
 return null;
 
@@ -59,8 +33,8 @@ return null;
 }
 
 
-/* ================================
-   RSI CALCULATION
+/* ===============================
+   RSI
 ================================ */
 
 function calcRSI(prices){
@@ -86,15 +60,15 @@ return rsi.toFixed(2);
 }
 
 
-/* ================================
+/* ===============================
    EMA
 ================================ */
 
 function EMA(values,period){
 
-let k = 2/(period+1);
+let k=2/(period+1);
 
-let ema = values[0];
+let ema=values[0];
 
 for(let i=1;i<values.length;i++){
 
@@ -107,32 +81,26 @@ return ema;
 }
 
 
-/* ================================
+/* ===============================
    MACD
 ================================ */
 
 function calcMACD(prices){
 
-let ema12 = EMA(prices,12);
+let ema12=EMA(prices,12);
 
-let ema26 = EMA(prices,26);
+let ema26=EMA(prices,26);
 
 return (ema12-ema26).toFixed(2);
 
 }
 
 
-/* ================================
+/* ===============================
    TREND
 ================================ */
 
 function detectTrend(prices){
-
-if(prices.length < 50){
-
-return "SIDEWAYS";
-
-}
 
 let sma20 =
 prices.slice(0,20).reduce((a,b)=>a+b)/20;
@@ -140,28 +108,20 @@ prices.slice(0,20).reduce((a,b)=>a+b)/20;
 let sma50 =
 prices.slice(0,50).reduce((a,b)=>a+b)/50;
 
-if(sma20>sma50){
+if(sma20>sma50) return "BULLISH";
 
-return "BULLISH";
-
-}
-
-if(sma20<sma50){
-
-return "BEARISH";
-
-}
+if(sma20<sma50) return "BEARISH";
 
 return "SIDEWAYS";
 
 }
 
 
-/* ================================
+/* ===============================
    SIGNAL ENGINE
 ================================ */
 
-function generateSignals(rsi,macd){
+function signals(rsi,macd){
 
 let intraday="HOLD";
 let shortTerm="HOLD";
@@ -190,8 +150,8 @@ return [intraday,shortTerm,longTerm];
 }
 
 
-/* ================================
-   MAIN ANALYSIS
+/* ===============================
+   ANALYZE STOCK
 ================================ */
 
 async function analyzeStock(){
@@ -201,33 +161,27 @@ document.getElementById("symbolInput")
 .value
 .trim();
 
-symbol = cleanSymbol(symbol);
-
 if(!symbol){
 
-alert("Enter stock symbol like RELIANCE");
+alert("Enter stock like RELIANCE");
 
 return;
 
 }
-
-/* show loading */
 
 document.getElementById("price").innerText="Loading...";
 
-/* fetch live price */
-
-let price = await fetchLivePrice(symbol);
+let price = await fetchPrice(symbol);
 
 if(!price){
 
-alert("Stock not found or API limit reached");
+alert("Stock not found");
 
 return;
 
 }
 
-/* fake price history (demo only) */
+/* create sample price history */
 
 let prices=[];
 
@@ -237,50 +191,38 @@ prices.push(price + (Math.random()-0.5)*20);
 
 }
 
-/* indicators */
-
 let rsi = calcRSI(prices);
 
 let macd = calcMACD(prices);
 
 let trend = detectTrend(prices);
 
-let signals = generateSignals(rsi,macd);
+let sig = signals(rsi,macd);
 
+document.getElementById("price").innerText=price;
 
-/* update dashboard */
+document.getElementById("rsi").innerText=rsi;
 
-document.getElementById("price")
-.innerText = price.toFixed(2);
+document.getElementById("macd").innerText=macd;
 
-document.getElementById("rsi")
-.innerText = rsi;
+document.getElementById("trend").innerText=trend;
 
-document.getElementById("macd")
-.innerText = macd;
+document.getElementById("intraday").innerText=sig[0];
 
-document.getElementById("trend")
-.innerText = trend;
+document.getElementById("shortterm").innerText=sig[1];
 
-document.getElementById("intraday")
-.innerText = signals[0];
-
-document.getElementById("shortterm")
-.innerText = signals[1];
-
-document.getElementById("longterm")
-.innerText = signals[2];
+document.getElementById("longterm").innerText=sig[2];
 
 }
 
 
-/* ================================
-   NSE SCANNER (LIMITED DEMO)
+/* ===============================
+   DEMO NSE SCANNER
 ================================ */
 
 async function startScanner(){
 
-const demoStocks = [
+const stocks=[
 
 "RELIANCE",
 "TCS",
@@ -293,14 +235,13 @@ const demoStocks = [
 
 ];
 
-let table =
-document.getElementById("scanner");
+let table=document.getElementById("scanner");
 
 table.innerHTML="";
 
-for(let stock of demoStocks){
+for(let s of stocks){
 
-let price = await fetchLivePrice(stock);
+let price = await fetchPrice(s);
 
 if(!price) continue;
 
@@ -310,26 +251,27 @@ let macd = (Math.random()*4-2);
 
 let breakout = Math.random()>0.7;
 
-let volumeSpike = Math.random()>0.6;
+let volume = Math.random()>0.6;
 
 let score =
-
 (rsi<40?1:0)+
 (macd>0?1:0)+
 (breakout?1:0)+
-(volumeSpike?1:0);
+(volume?1:0);
 
-table.innerHTML+=
+table.innerHTML+=`
 
-`<tr>
-<td>${stock}</td>
+<tr>
+<td>${s}</td>
 <td>${price.toFixed(2)}</td>
 <td>${rsi.toFixed(1)}</td>
 <td>${macd.toFixed(2)}</td>
 <td>${breakout?"YES":"NO"}</td>
-<td>${volumeSpike?"YES":"NO"}</td>
+<td>${volume?"YES":"NO"}</td>
 <td>${score}</td>
-</tr>`;
+</tr>
+
+`;
 
 }
 
