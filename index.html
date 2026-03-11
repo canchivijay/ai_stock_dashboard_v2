@@ -8,10 +8,27 @@
 </head>
 <body>
 
-<header>
-<h1>AI Stock Analysis Dashboard</h1>
-<p>Intraday, Short-Term, Long-Term Signals</p>
-</header>
+<h2>NSE AI Market Scanner</h2>
+
+<button onclick="startScanner()">Scan Entire NSE Market</button>
+
+<table border="1" style="width:100%; margin-top:20px;">
+
+<thead>
+<tr>
+<th>Stock</th>
+<th>Price</th>
+<th>RSI</th>
+<th>MACD</th>
+<th>Breakout</th>
+<th>Volume Spike</th>
+<th>Score</th>
+</tr>
+</thead>
+
+<tbody id="scanner"></tbody>
+
+</table>
 
 <section class="search">
 <input id="symbolInput" placeholder="Example: RELIANCE.BSE">
