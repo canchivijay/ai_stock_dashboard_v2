@@ -1,19 +1,23 @@
-
 const API_KEY = "ID9GKDX0E3Z3TP9A";
 
-async function fetchData(symbol){
+async function fetchStockData(symbol){
 
     try{
 
-        let url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${API_KEY}`;
+        // automatically convert to NSE format
+        if(!symbol.includes(".")){
+            symbol = symbol + ".NS";
+        }
 
-        let res = await fetch(url);
-        let data = await res.json();
+        const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${API_KEY}`;
 
-        console.log("API response:", data);
+        const response = await fetch(url);
+        const data = await response.json();
+
+        console.log("API Response:", data);
 
         if(!data["Time Series (Daily)"]){
-            alert("Invalid symbol or API limit reached");
+            alert("Stock not available or API limit reached");
             return null;
         }
 
@@ -21,14 +25,16 @@ async function fetchData(symbol){
 
     }catch(error){
 
-        console.error("API error:", error);
+        console.error("Fetch error:", error);
         alert("Error fetching stock data");
         return null;
 
     }
+
 }
 
-function calcRSI(prices){
+
+function calculateRSI(prices){
 
     let gains = 0;
     let losses = 0;
@@ -37,8 +43,11 @@ function calcRSI(prices){
 
         let diff = prices[i] - prices[i-1];
 
-        if(diff > 0) gains += diff;
-        else losses += Math.abs(diff);
+        if(diff > 0){
+            gains += diff;
+        }else{
+            losses += Math.abs(diff);
+        }
 
     }
 
@@ -46,9 +55,11 @@ function calcRSI(prices){
     let rsi = 100 - (100/(1+rs));
 
     return rsi.toFixed(2);
+
 }
 
-function calcEMA(values,period){
+
+function calculateEMA(values,period){
 
     let k = 2/(period+1);
     let ema = values[0];
@@ -58,17 +69,23 @@ function calcEMA(values,period){
     }
 
     return ema;
+
 }
 
-function calcMACD(prices){
 
-    let ema12 = calcEMA(prices,12);
-    let ema26 = calcEMA(prices,26);
+function calculateMACD(prices){
 
-    return (ema12 - ema26).toFixed(2);
+    let ema12 = calculateEMA(prices,12);
+    let ema26 = calculateEMA(prices,26);
+
+    let macd = ema12 - ema26;
+
+    return macd.toFixed(2);
+
 }
 
-function supportResistance(highs,lows,close){
+
+function calculateSupportResistance(highs,lows,close){
 
     let pivot = (highs[0] + lows[0] + close) / 3;
 
@@ -79,9 +96,11 @@ function supportResistance(highs,lows,close){
         support.toFixed(2),
         resistance.toFixed(2)
     ];
+
 }
 
-function signal(rsi,macd){
+
+function generateSignals(rsi,macd){
 
     let intraday = "HOLD";
     let shortTerm = "HOLD";
@@ -100,71 +119,56 @@ function signal(rsi,macd){
     }
 
     return [intraday,shortTerm,longTerm];
+
 }
+
 
 async function analyzeStock(){
 
-let symbol = document.getElementById("symbolInput").value.trim().toUpperCase();
+    let symbol = document.getElementById("symbolInput").value.trim().toUpperCase();
 
-if(!symbol){
-alert("Enter stock symbol like RELIANCE");
-return;
-}
+    if(!symbol){
+        alert("Enter stock symbol like RELIANCE or TCS");
+        return;
+    }
 
-/* automatically convert to NSE symbol */
+    const series = await fetchStockData(symbol);
 
-if(!symbol.includes(".")){
-symbol = symbol + ".NS";
-}
+    if(!series) return;
 
-let series = await fetchData(symbol);
+    const dates = Object.keys(series).slice(0,30);
 
-if(!series){
-alert("Stock data not available for: " + symbol);
-return;
-}
+    let prices = [];
+    let highs = [];
+    let lows = [];
 
-let dates = Object.keys(series).slice(0,30);
+    for(let d of dates){
 
-let prices=[];
-let highs=[];
-let lows=[];
+        prices.push(parseFloat(series[d]["4. close"]));
+        highs.push(parseFloat(series[d]["2. high"]));
+        lows.push(parseFloat(series[d]["3. low"]));
 
-for(let d of dates){
+    }
 
-prices.push(parseFloat(series[d]["4. close"]));
-highs.push(parseFloat(series[d]["2. high"]));
-lows.push(parseFloat(series[d]["3. low"]));
+    const latestPrice = prices[0];
 
-}
+    const rsi = calculateRSI(prices);
+    const macd = calculateMACD(prices);
 
-let price=prices[0];
+    const sr = calculateSupportResistance(highs,lows,latestPrice);
 
-let rsi=calcRSI(prices);
+    const signals = generateSignals(rsi,macd);
 
-let macd=calcMACD(prices);
+    document.getElementById("price").innerText = latestPrice;
 
-let sr=supportResistance(highs,lows,price);
+    document.getElementById("rsi").innerText = rsi;
+    document.getElementById("macd").innerText = macd;
 
-let signals=signal(rsi,macd);
+    document.getElementById("intraday").innerText = signals[0];
+    document.getElementById("shortterm").innerText = signals[1];
+    document.getElementById("longterm").innerText = signals[2];
 
-document.getElementById("price").innerText=price;
-
-document.getElementById("rsi").innerText=rsi;
-
-document.getElementById("macd").innerText=macd;
-
-document.getElementById("intraday").innerText=signals[0];
-
-document.getElementById("shortterm").innerText=signals[1];
-
-document.getElementById("longterm").innerText=signals[2];
-
-document.getElementById("support").innerText=sr[0];
-
-document.getElementById("resistance").innerText=sr[1];
+    document.getElementById("support").innerText = sr[0];
+    document.getElementById("resistance").innerText = sr[1];
 
 }
-
-
-The script automatically converts to:
