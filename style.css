@@ -1,39 +1,26 @@
-
 body{
+background:#0b1320;
+color:white;
 font-family:Arial;
-background:#0f172a;
-color:white;
-padding:20px;
-}
-
-header{
-text-align:center;
-}
-
-.search{
-text-align:center;
-margin:20px;
-}
-
-input{
-padding:10px;
-width:220px;
-border-radius:5px;
-border:none;
-}
-
-button{
-padding:10px 15px;
-background:#22c55e;
-border:none;
-color:white;
-border-radius:5px;
-cursor:pointer;
+padding:30px;
 }
 
 .card{
 background:#1e293b;
 padding:20px;
-margin-top:20px;
-border-radius:10px;
+margin:20px 0;
+border-radius:8px;
+}
+
+button{
+background:#22c55e;
+border:none;
+padding:10px 20px;
+color:white;
+cursor:pointer;
+}
+
+input{
+padding:10px;
+width:250px;
 }
