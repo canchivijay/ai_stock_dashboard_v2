@@ -1,41 +1,65 @@
-/* ============================
-   NSE STOCK DASHBOARD FIXED
-============================= */
+/* ===============================
+   FETCH STOCK PRICE
+================================ */
 
+async function fetchPrice(symbol){
 
-/* LOAD NSE STOCK LIST */
+symbol = symbol.toUpperCase();
 
-async function loadNSEStocks(){
+try{
 
-const url =
-"https://raw.githubusercontent.com/datasets/nse-listed/master/data/companies.csv";
+let url =
+`https://api.allorigins.win/raw?url=https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}.NS`;
 
-const res = await fetch(url);
+let res = await fetch(url);
 
-const text = await res.text();
+let data = await res.json();
 
-const rows = text.split("\n");
+return data.quoteResponse.result[0].regularMarketPrice;
 
-let stocks=[];
+}catch{
 
-for(let i=1;i<rows.length;i++){
+return null;
 
-let cols = rows[i].split(",");
-
-if(cols[1]){
-stocks.push(cols[1].trim().toUpperCase());
 }
 
 }
 
-return stocks;
+
+/* ===============================
+   ANALYZE STOCK
+================================ */
+
+async function analyzeStock(){
+
+let symbol =
+document.getElementById("symbolInput").value;
+
+let price = await fetchPrice(symbol);
+
+if(!price){
+
+alert("Stock not found");
+
+return;
+
+}
+
+document.getElementById("price").innerText=price;
+
+
+/* fake price history */
+
+let prices=[];
+
+for(let i=0;i<60;i++){
+
+prices.push(price+(Math.random()-0.5)*20);
 
 }
 
 
 /* RSI */
-
-function calcRSI(prices){
 
 let gains=0;
 let losses=0;
@@ -51,177 +75,118 @@ else losses+=Math.abs(diff);
 
 let rs=gains/(losses||1);
 
-return (100-(100/(1+rs))).toFixed(2);
-
-}
-
-
-/* EMA */
-
-function EMA(values,period){
-
-let k=2/(period+1);
-
-let ema=values[0];
-
-for(let i=1;i<values.length;i++){
-
-ema = values[i]*k + ema*(1-k);
-
-}
-
-return ema;
-
-}
+let rsi=(100-(100/(1+rs))).toFixed(2);
 
 
 /* MACD */
 
-function calcMACD(prices){
-
-let ema12=EMA(prices,12);
-let ema26=EMA(prices,26);
-
-return (ema12-ema26).toFixed(2);
-
-}
+let macd=(Math.random()*4-2).toFixed(2);
 
 
-/* TREND */
+/* Trend */
 
-function detectTrend(prices){
+let trend="SIDEWAYS";
 
-let sma20 =
-prices.slice(0,20).reduce((a,b)=>a+b)/20;
-
-let sma50 =
-prices.slice(0,50).reduce((a,b)=>a+b)/50;
-
-if(sma20>sma50) return "BULLISH";
-
-if(sma20<sma50) return "BEARISH";
-
-return "SIDEWAYS";
-
-}
+if(rsi<40) trend="BULLISH";
+if(rsi>70) trend="BEARISH";
 
 
-/* SIGNAL ENGINE */
-
-function signals(rsi,macd){
+/* Signals */
 
 let intraday="HOLD";
 let shortTerm="HOLD";
 let longTerm="HOLD";
 
 if(rsi<35 && macd>0) intraday="BUY";
-
 if(rsi>60 && macd>0) shortTerm="BUY";
-
 if(macd>1) longTerm="BUY";
 
-return [intraday,shortTerm,longTerm];
-
-}
-
-
-/* ANALYZE STOCK */
-
-async function analyzeStock(){
-
-let symbol =
-document.getElementById("symbolInput")
-.value.trim().toUpperCase();
-
-if(!symbol){
-
-alert("Enter NSE stock like TCS or NTPC");
-return;
-
-}
-
-/* verify stock exists */
-
-let stocks = await loadNSEStocks();
-
-if(!stocks.includes(symbol)){
-
-alert("Stock not listed in NSE");
-
-return;
-
-}
-
-
-/* simulate price */
-
-let price =
-Math.floor(Math.random()*2000)+100;
-
-
-/* simulate history */
-
-let prices=[];
-
-for(let i=0;i<60;i++){
-
-prices.push(price+(Math.random()-0.5)*20);
-
-}
-
-let rsi=calcRSI(prices);
-let macd=calcMACD(prices);
-let trend=detectTrend(prices);
-let sig=signals(rsi,macd);
-
-
-/* update UI */
-
-document.getElementById("price").innerText=price;
 
 document.getElementById("rsi").innerText=rsi;
-
 document.getElementById("macd").innerText=macd;
-
 document.getElementById("trend").innerText=trend;
 
-document.getElementById("intraday").innerText=sig[0];
-document.getElementById("shortterm").innerText=sig[1];
-document.getElementById("longterm").innerText=sig[2];
+document.getElementById("intraday").innerText=intraday;
+document.getElementById("shortterm").innerText=shortTerm;
+document.getElementById("longterm").innerText=longTerm;
+
+
+/* CHART */
+
+drawChart(prices);
 
 }
 
 
-/* MARKET SCANNER */
+/* ===============================
+   CHART
+================================ */
 
-async function startScanner(){
+function drawChart(prices){
 
-let table =
+const chart =
+LightweightCharts.createChart(
+document.getElementById('chart'),
+{
+width:800,
+height:400
+}
+);
+
+const lineSeries =
+chart.addLineSeries();
+
+let data=[];
+
+for(let i=0;i<prices.length;i++){
+
+data.push({
+time:i,
+value:prices[i]
+});
+
+}
+
+lineSeries.setData(data);
+
+}
+
+
+/* ===============================
+   MARKET SCANNER
+================================ */
+
+function scanMarket(){
+
+const stocks=[
+"RELIANCE",
+"TCS",
+"INFY",
+"SBIN",
+"HDFCBANK",
+"AXISBANK",
+"ITC",
+"LT",
+"NTPC",
+"BAJFINANCE"
+];
+
+let table=
 document.getElementById("scanner");
-
-table.innerHTML="Loading NSE stocks...";
-
-let stocks = await loadNSEStocks();
-
-stocks = stocks.slice(0,20);
 
 table.innerHTML="";
 
 for(let s of stocks){
 
-let price=Math.floor(Math.random()*2000)+100;
+let price=(Math.random()*2000+100).toFixed(2);
 
 let rsi=(Math.random()*60+20);
-let macd=(Math.random()*4-2);
 
 let breakout=Math.random()>0.7;
-let volume=Math.random()>0.6;
 
-let score =
+let score=
 (rsi<40?1:0)+
-(macd>0?1:0)+
-(breakout?1:0)+
-(volume?1:0);
+(breakout?1:0);
 
 table.innerHTML+=`
 
@@ -229,9 +194,7 @@ table.innerHTML+=`
 <td>${s}</td>
 <td>${price}</td>
 <td>${rsi.toFixed(1)}</td>
-<td>${macd.toFixed(2)}</td>
 <td>${breakout?"YES":"NO"}</td>
-<td>${volume?"YES":"NO"}</td>
 <td>${score}</td>
 </tr>
 
