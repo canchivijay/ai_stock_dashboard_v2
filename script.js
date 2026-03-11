@@ -1,146 +1,45 @@
-const API_KEY = "ID9GKDX0E3Z3TP9A";
+const API_KEY = "8P9HW0R60QFKNE7J";
 
-async function fetchStockData(symbol){
+async function fetchStock(symbol){
 
     try{
 
-        // automatically convert to NSE format
         if(!symbol.includes(".")){
             symbol = symbol + ".NS";
         }
 
-        const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${API_KEY}`;
+        const url =
+        `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${API_KEY}`;
 
-        const response = await fetch(url);
-        const data = await response.json();
+        const res = await fetch(url);
+        const data = await res.json();
 
-        console.log("API Response:", data);
+        console.log("API:", data);
 
         if(!data["Time Series (Daily)"]){
-            alert("Stock not available or API limit reached");
+            alert("Stock not found or API limit reached");
             return null;
         }
 
         return data["Time Series (Daily)"];
 
-    }catch(error){
+    }catch(e){
 
-        console.error("Fetch error:", error);
-        alert("Error fetching stock data");
+        console.error(e);
+        alert("Error loading stock");
+
         return null;
-
     }
-
 }
 
 
-function calculateRSI(prices){
+function getPrices(series){
 
-    let gains = 0;
-    let losses = 0;
+    const dates = Object.keys(series).slice(0,100);
 
-    for(let i=1;i<prices.length;i++){
-
-        let diff = prices[i] - prices[i-1];
-
-        if(diff > 0){
-            gains += diff;
-        }else{
-            losses += Math.abs(diff);
-        }
-
-    }
-
-    let rs = gains / (losses || 1);
-    let rsi = 100 - (100/(1+rs));
-
-    return rsi.toFixed(2);
-
-}
-
-
-function calculateEMA(values,period){
-
-    let k = 2/(period+1);
-    let ema = values[0];
-
-    for(let i=1;i<values.length;i++){
-        ema = values[i]*k + ema*(1-k);
-    }
-
-    return ema;
-
-}
-
-
-function calculateMACD(prices){
-
-    let ema12 = calculateEMA(prices,12);
-    let ema26 = calculateEMA(prices,26);
-
-    let macd = ema12 - ema26;
-
-    return macd.toFixed(2);
-
-}
-
-
-function calculateSupportResistance(highs,lows,close){
-
-    let pivot = (highs[0] + lows[0] + close) / 3;
-
-    let resistance = (2*pivot) - lows[0];
-    let support = (2*pivot) - highs[0];
-
-    return [
-        support.toFixed(2),
-        resistance.toFixed(2)
-    ];
-
-}
-
-
-function generateSignals(rsi,macd){
-
-    let intraday = "HOLD";
-    let shortTerm = "HOLD";
-    let longTerm = "HOLD";
-
-    if(rsi < 35 && macd > 0){
-        intraday = "BUY";
-    }
-
-    if(rsi > 60 && macd > 0){
-        shortTerm = "BUY";
-    }
-
-    if(macd > 1){
-        longTerm = "BUY";
-    }
-
-    return [intraday,shortTerm,longTerm];
-
-}
-
-
-async function analyzeStock(){
-
-    let symbol = document.getElementById("symbolInput").value.trim().toUpperCase();
-
-    if(!symbol){
-        alert("Enter stock symbol like RELIANCE or TCS");
-        return;
-    }
-
-    const series = await fetchStockData(symbol);
-
-    if(!series) return;
-
-    const dates = Object.keys(series).slice(0,30);
-
-    let prices = [];
-    let highs = [];
-    let lows = [];
+    let prices=[];
+    let highs=[];
+    let lows=[];
 
     for(let d of dates){
 
@@ -150,25 +49,158 @@ async function analyzeStock(){
 
     }
 
-    const latestPrice = prices[0];
+    return {prices,highs,lows};
+}
 
-    const rsi = calculateRSI(prices);
-    const macd = calculateMACD(prices);
 
-    const sr = calculateSupportResistance(highs,lows,latestPrice);
+function EMA(values,period){
 
-    const signals = generateSignals(rsi,macd);
+    let k = 2/(period+1);
+    let ema = values[0];
 
-    document.getElementById("price").innerText = latestPrice;
+    for(let i=1;i<values.length;i++){
+        ema = values[i]*k + ema*(1-k);
+    }
+
+    return ema;
+}
+
+
+function RSI(prices){
+
+    let gains=0;
+    let losses=0;
+
+    for(let i=1;i<15;i++){
+
+        let diff = prices[i]-prices[i-1];
+
+        if(diff>0) gains+=diff;
+        else losses+=Math.abs(diff);
+
+    }
+
+    let rs=gains/(losses||1);
+
+    return (100-(100/(1+rs))).toFixed(2);
+}
+
+
+function MACD(prices){
+
+    let ema12 = EMA(prices,12);
+    let ema26 = EMA(prices,26);
+
+    return (ema12-ema26).toFixed(2);
+}
+
+
+function SMA(prices,period){
+
+    let sum=0;
+
+    for(let i=0;i<period;i++){
+        sum+=prices[i];
+    }
+
+    return (sum/period).toFixed(2);
+}
+
+
+function supportResistance(highs,lows,price){
+
+    let pivot = (highs[0]+lows[0]+price)/3;
+
+    let resistance = (2*pivot)-lows[0];
+    let support = (2*pivot)-highs[0];
+
+    return {
+        support:support.toFixed(2),
+        resistance:resistance.toFixed(2)
+    };
+}
+
+
+function signals(rsi,macd){
+
+    let intraday="HOLD";
+    let shortTerm="HOLD";
+    let longTerm="HOLD";
+
+    if(rsi<35 && macd>0) intraday="BUY";
+
+    if(rsi>60 && macd>0) shortTerm="BUY";
+
+    if(macd>1) longTerm="BUY";
+
+    return {intraday,shortTerm,longTerm};
+}
+
+
+function trend(sma20,sma50,sma200){
+
+    if(sma20>sma50 && sma50>sma200) return "STRONG BULLISH";
+
+    if(sma20<sma50 && sma50<sma200) return "STRONG BEARISH";
+
+    return "SIDEWAYS";
+}
+
+
+async function analyzeStock(){
+
+    let symbol =
+    document.getElementById("symbolInput").value.trim().toUpperCase();
+
+    if(!symbol){
+
+        alert("Enter stock like RELIANCE or TCS");
+
+        return;
+    }
+
+    const series = await fetchStock(symbol);
+
+    if(!series) return;
+
+    const data = getPrices(series);
+
+    const prices = data.prices;
+    const highs = data.highs;
+    const lows = data.lows;
+
+    const price = prices[0];
+
+    const rsi = RSI(prices);
+    const macd = MACD(prices);
+
+    const sma20 = SMA(prices,20);
+    const sma50 = SMA(prices,50);
+    const sma200 = SMA(prices,100);
+
+    const sr = supportResistance(highs,lows,price);
+
+    const sig = signals(rsi,macd);
+
+    const marketTrend = trend(sma20,sma50,sma200);
+
+
+    document.getElementById("price").innerText = price;
 
     document.getElementById("rsi").innerText = rsi;
+
     document.getElementById("macd").innerText = macd;
 
-    document.getElementById("intraday").innerText = signals[0];
-    document.getElementById("shortterm").innerText = signals[1];
-    document.getElementById("longterm").innerText = signals[2];
+    document.getElementById("intraday").innerText = sig.intraday;
 
-    document.getElementById("support").innerText = sr[0];
-    document.getElementById("resistance").innerText = sr[1];
+    document.getElementById("shortterm").innerText = sig.shortTerm;
+
+    document.getElementById("longterm").innerText = sig.longTerm;
+
+    document.getElementById("support").innerText = sr.support;
+
+    document.getElementById("resistance").innerText = sr.resistance;
+
+    document.getElementById("trend").innerText = marketTrend;
 
 }
