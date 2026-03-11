@@ -1,5 +1,5 @@
 
-const API_KEY="demo";
+const API_KEY="ID9GKDX0E3Z3TP9A";
 
 async function fetchData(symbol){
 
