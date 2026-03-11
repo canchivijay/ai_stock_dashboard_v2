@@ -1,6 +1,11 @@
-/* ===============================
-   AI STOCK DASHBOARD - WORKING VERSION
-================================ */
+/* =====================================
+   AI STOCK DASHBOARD (OPEN NSE STOCKS)
+===================================== */
+
+
+/* =============================
+   FETCH LIVE PRICE
+============================= */
 
 async function fetchPrice(symbol){
 
@@ -12,13 +17,15 @@ symbol = symbol.replace(".NS","");
 try{
 
 const url =
-`https://api.allorigins.win/raw?url=https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}.NS`;
+`https://corsproxy.io/?https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}.NS`;
 
 const res = await fetch(url);
 
 const data = await res.json();
 
-console.log(data);
+if(!data.quoteResponse.result.length){
+return null;
+}
 
 return data.quoteResponse.result[0].regularMarketPrice;
 
@@ -33,9 +40,9 @@ return null;
 }
 
 
-/* ===============================
+/* =============================
    RSI
-================================ */
+============================= */
 
 function calcRSI(prices){
 
@@ -53,16 +60,14 @@ else losses+=Math.abs(diff);
 
 let rs=gains/(losses||1);
 
-let rsi = 100-(100/(1+rs));
-
-return rsi.toFixed(2);
+return (100-(100/(1+rs))).toFixed(2);
 
 }
 
 
-/* ===============================
+/* =============================
    EMA
-================================ */
+============================= */
 
 function EMA(values,period){
 
@@ -81,9 +86,9 @@ return ema;
 }
 
 
-/* ===============================
+/* =============================
    MACD
-================================ */
+============================= */
 
 function calcMACD(prices){
 
@@ -96,9 +101,9 @@ return (ema12-ema26).toFixed(2);
 }
 
 
-/* ===============================
+/* =============================
    TREND
-================================ */
+============================= */
 
 function detectTrend(prices){
 
@@ -117,9 +122,9 @@ return "SIDEWAYS";
 }
 
 
-/* ===============================
+/* =============================
    SIGNAL ENGINE
-================================ */
+============================= */
 
 function signals(rsi,macd){
 
@@ -127,43 +132,29 @@ let intraday="HOLD";
 let shortTerm="HOLD";
 let longTerm="HOLD";
 
-if(rsi<35 && macd>0){
+if(rsi<35 && macd>0) intraday="BUY";
 
-intraday="BUY";
+if(rsi>60 && macd>0) shortTerm="BUY";
 
-}
-
-if(rsi>60 && macd>0){
-
-shortTerm="BUY";
-
-}
-
-if(macd>1){
-
-longTerm="BUY";
-
-}
+if(macd>1) longTerm="BUY";
 
 return [intraday,shortTerm,longTerm];
 
 }
 
 
-/* ===============================
-   ANALYZE STOCK
-================================ */
+/* =============================
+   ANALYZE ANY NSE STOCK
+============================= */
 
 async function analyzeStock(){
 
 let symbol =
-document.getElementById("symbolInput")
-.value
-.trim();
+document.getElementById("symbolInput").value.trim();
 
 if(!symbol){
 
-alert("Enter stock like RELIANCE");
+alert("Enter NSE stock like RELIANCE or TCS");
 
 return;
 
@@ -181,13 +172,14 @@ return;
 
 }
 
-/* create sample price history */
+
+/* generate synthetic price history */
 
 let prices=[];
 
 for(let i=0;i<60;i++){
 
-prices.push(price + (Math.random()-0.5)*20);
+prices.push(price+(Math.random()-0.5)*20);
 
 }
 
@@ -198,6 +190,9 @@ let macd = calcMACD(prices);
 let trend = detectTrend(prices);
 
 let sig = signals(rsi,macd);
+
+
+/* update UI */
 
 document.getElementById("price").innerText=price;
 
@@ -216,26 +211,53 @@ document.getElementById("longterm").innerText=sig[2];
 }
 
 
-/* ===============================
-   DEMO NSE SCANNER
-================================ */
+/* =============================
+   LOAD NSE STOCK LIST
+============================= */
+
+async function loadNSEStocks(){
+
+const url =
+"https://raw.githubusercontent.com/datasets/nse-listed/master/data/companies.csv";
+
+const res = await fetch(url);
+
+const text = await res.text();
+
+const rows = text.split("\n");
+
+let stocks=[];
+
+for(let i=1;i<rows.length;i++){
+
+let cols = rows[i].split(",");
+
+if(cols[1]){
+stocks.push(cols[1].trim());
+}
+
+}
+
+return stocks;
+
+}
+
+
+/* =============================
+   NSE MARKET SCANNER
+============================= */
 
 async function startScanner(){
 
-const stocks=[
-
-"RELIANCE",
-"TCS",
-"INFY",
-"HDFCBANK",
-"SBIN",
-"ICICIBANK",
-"LT",
-"ITC"
-
-];
-
 let table=document.getElementById("scanner");
+
+table.innerHTML="Loading NSE stocks...";
+
+let stocks = await loadNSEStocks();
+
+/* limit scan to first 20 to avoid browser overload */
+
+stocks = stocks.slice(0,20);
 
 table.innerHTML="";
 
@@ -259,9 +281,9 @@ let score =
 (breakout?1:0)+
 (volume?1:0);
 
-table.innerHTML+=`
+table.innerHTML+=
 
-<tr>
+`<tr>
 <td>${s}</td>
 <td>${price.toFixed(2)}</td>
 <td>${rsi.toFixed(1)}</td>
@@ -269,9 +291,7 @@ table.innerHTML+=`
 <td>${breakout?"YES":"NO"}</td>
 <td>${volume?"YES":"NO"}</td>
 <td>${score}</td>
-</tr>
-
-`;
+</tr>`;
 
 }
 
