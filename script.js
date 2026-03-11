@@ -104,50 +104,67 @@ function signal(rsi,macd){
 
 async function analyzeStock(){
 
-    let symbol = document.getElementById("symbolInput").value.trim().toUpperCase();
+let symbol = document.getElementById("symbolInput").value.trim().toUpperCase();
 
-    if(!symbol){
-        alert("Enter stock symbol like RELIANCE or TCS");
-        return;
-    }
+if(!symbol){
+alert("Enter stock symbol like RELIANCE");
+return;
+}
 
-    let series = await fetchData(symbol);
+/* automatically convert to NSE symbol */
 
-    if(!series) return;
+if(!symbol.includes(".")){
+symbol = symbol + ".NS";
+}
 
-    let dates = Object.keys(series).slice(0,30);
+let series = await fetchData(symbol);
 
-    let prices = [];
-    let highs = [];
-    let lows = [];
+if(!series){
+alert("Stock data not available for: " + symbol);
+return;
+}
 
-    for(let d of dates){
+let dates = Object.keys(series).slice(0,30);
 
-        prices.push(parseFloat(series[d]["4. close"]));
-        highs.push(parseFloat(series[d]["2. high"]));
-        lows.push(parseFloat(series[d]["3. low"]));
+let prices=[];
+let highs=[];
+let lows=[];
 
-    }
+for(let d of dates){
 
-    let price = prices[0];
-
-    let rsi = calcRSI(prices);
-    let macd = calcMACD(prices);
-
-    let sr = supportResistance(highs,lows,price);
-
-    let signals = signal(rsi,macd);
-
-    document.getElementById("price").innerText = price;
-
-    document.getElementById("rsi").innerText = rsi;
-    document.getElementById("macd").innerText = macd;
-
-    document.getElementById("intraday").innerText = signals[0];
-    document.getElementById("shortterm").innerText = signals[1];
-    document.getElementById("longterm").innerText = signals[2];
-
-    document.getElementById("support").innerText = sr[0];
-    document.getElementById("resistance").innerText = sr[1];
+prices.push(parseFloat(series[d]["4. close"]));
+highs.push(parseFloat(series[d]["2. high"]));
+lows.push(parseFloat(series[d]["3. low"]));
 
 }
+
+let price=prices[0];
+
+let rsi=calcRSI(prices);
+
+let macd=calcMACD(prices);
+
+let sr=supportResistance(highs,lows,price);
+
+let signals=signal(rsi,macd);
+
+document.getElementById("price").innerText=price;
+
+document.getElementById("rsi").innerText=rsi;
+
+document.getElementById("macd").innerText=macd;
+
+document.getElementById("intraday").innerText=signals[0];
+
+document.getElementById("shortterm").innerText=signals[1];
+
+document.getElementById("longterm").innerText=signals[2];
+
+document.getElementById("support").innerText=sr[0];
+
+document.getElementById("resistance").innerText=sr[1];
+
+}
+
+
+The script automatically converts to:
