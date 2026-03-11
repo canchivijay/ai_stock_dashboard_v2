@@ -1,27 +1,82 @@
-
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Stock Analysis Dashboard</title>
+
+<title>AI Stock Analysis Dashboard V5</title>
+
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+
 <link rel="stylesheet" href="style.css">
+
 </head>
+
 <body>
 
-<h2>NSE AI Market Scanner</h2>
+<h1>AI Stock Analysis Dashboard</h1>
 
-<button onclick="startScanner()">Scan Entire NSE Market</button>
+<div class="search">
 
-<table border="1" style="width:100%; margin-top:20px;">
+<input id="symbolInput" placeholder="Enter NSE stock (RELIANCE)">
+
+<button onclick="analyzeStock()">Analyze</button>
+
+</div>
+
+
+<div class="card">
+
+<h2>Live Price</h2>
+
+<div id="price">--</div>
+
+</div>
+
+
+<div class="card">
+
+<h2>Indicators</h2>
+
+RSI: <span id="rsi">--</span><br>
+MACD: <span id="macd">--</span><br>
+Trend: <span id="trend">--</span>
+
+</div>
+
+
+<div class="card">
+
+<h2>Signals</h2>
+
+Intraday: <span id="intraday">--</span><br>
+Short Term: <span id="shortterm">--</span><br>
+Long Term: <span id="longterm">--</span>
+
+</div>
+
+
+<div class="card">
+
+<h2>Stock Chart</h2>
+
+<div id="chart" style="height:400px;"></div>
+
+</div>
+
+
+<div class="card">
+
+<h2>NSE Market Scanner</h2>
+
+<button onclick="scanMarket()">Scan Market</button>
+
+<table>
 
 <thead>
 <tr>
 <th>Stock</th>
 <th>Price</th>
 <th>RSI</th>
-<th>MACD</th>
 <th>Breakout</th>
-<th>Volume Spike</th>
 <th>Score</th>
 </tr>
 </thead>
@@ -30,35 +85,8 @@
 
 </table>
 
-<section class="search">
-<input id="symbolInput" placeholder="Example: RELIANCE.BSE">
-<button onclick="analyzeStock()">Analyze</button>
-</section>
+</div>
 
-<section class="card">
-<h2>Live Price</h2>
-<p id="price">--</p>
-</section>
-
-<section class="card">
-<h2>Indicators</h2>
-<p>RSI: <span id="rsi">--</span></p>
-<p>MACD: <span id="macd">--</span></p>
-<p>Trend: <span id="trend">--</span></p>
-</section>
-
-<section class="card">
-<h2>Signals</h2>
-<p>Intraday: <span id="intraday">--</span></p>
-<p>Short Term: <span id="shortterm">--</span></p>
-<p>Long Term: <span id="longterm">--</span></p>
-</section>
-
-<section class="card">
-<h2>Support / Resistance</h2>
-<p>Support: <span id="support">--</span></p>
-<p>Resistance: <span id="resistance">--</span></p>
-</section>
 
 <script src="script.js"></script>
 
