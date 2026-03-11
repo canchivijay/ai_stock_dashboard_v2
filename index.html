@@ -1,0 +1,48 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Stock Analysis Dashboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+<h1>AI Stock Analysis Dashboard</h1>
+<p>Intraday, Short-Term, Long-Term Signals</p>
+</header>
+
+<section class="search">
+<input id="symbolInput" placeholder="Example: RELIANCE.BSE">
+<button onclick="analyzeStock()">Analyze</button>
+</section>
+
+<section class="card">
+<h2>Live Price</h2>
+<p id="price">--</p>
+</section>
+
+<section class="card">
+<h2>Indicators</h2>
+<p>RSI: <span id="rsi">--</span></p>
+<p>MACD: <span id="macd">--</span></p>
+</section>
+
+<section class="card">
+<h2>Signals</h2>
+<p>Intraday: <span id="intraday">--</span></p>
+<p>Short Term: <span id="shortterm">--</span></p>
+<p>Long Term: <span id="longterm">--</span></p>
+</section>
+
+<section class="card">
+<h2>Support / Resistance</h2>
+<p>Support: <span id="support">--</span></p>
+<p>Resistance: <span id="resistance">--</span></p>
+</section>
+
+<script src="script.js"></script>
+
+</body>
+</html>
